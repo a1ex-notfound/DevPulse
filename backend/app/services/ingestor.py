@@ -4,67 +4,65 @@ import tempfile
 from typing import List, Dict, Any
 from git import Repo
 
-# Allowed code file extensions
-ALLOWED_EXTENSIONS = {
-    '.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.go', '.cpp', '.c',
-    '.rs', '.php', '.rb', '.html', '.css', '.json', '.yaml', '.yml',
-    '.md', '.dockerfile', 'Dockerfile', '.sh', '.tf'
-}
 
-IGNORE_DIRS = {'.git', 'node_modules', '__pycache__', 'venv', '.next', 'dist', 'build'}
-
-class RepoIngestor:
+class RepositoryIngestor:
     def __init__(self, repo_url: str):
         self.repo_url = repo_url
-        self.temp_dir = None
+        self.temp_dir = tempfile.mkdtemp()
+        self.files_data = []
 
-    def clone_repository(self) -> str:
-        """Clones the repository into a temporary directory."""
-        self.temp_dir = tempfile.mkdtemp(prefix="devops_ai_")
+    def process_repository(self) -> List[Dict[str, Any]]:
+        """Clones the repository and extracts file contents."""
         try:
-            # Shallow clone (depth=1) for faster download
+            # Shallow clone for speed
             Repo.clone_from(self.repo_url, self.temp_dir, depth=1)
-            return self.temp_dir
-        except Exception as e:
-            self.cleanup()
-            raise RuntimeError(f"Failed to clone repository: {str(e)}")
 
-    def extract_code_files(self) -> List[Dict[str, Any]]:
-        """Parses the cloned repository and extracts text code files."""
-        if not self.temp_dir or not os.path.exists(self.temp_dir):
-            raise FileNotFoundError("Repository has not been cloned yet.")
+            ignored_extensions = {
+                '.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip',
+                '.tar', '.gz', '.exe', '.pyc', '.git', '.mp4', '.mp3', '.ttf'
+            }
+            ignored_dirs = {
+                '.git', '__pycache__', 'node_modules', 'venv', '.venv',
+                'build', 'dist', '.idea', '.vscode'
+            }
 
-        parsed_files = []
+            for root, dirs, files in os.walk(self.temp_dir):
+                dirs[:] = [d for d in dirs if d not in ignored_dirs]
 
-        for root, dirs, files in os.walk(self.temp_dir):
-            # Filter out ignored directories
-            dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+                for file in files:
+                    ext = os.path.splitext(file)[1].lower()
+                    if ext in ignored_extensions:
+                        continue
 
-            for file in files:
-                ext = os.path.splitext(file)[1].lower()
-                filename = os.path.basename(file)
-
-                if ext in ALLOWED_EXTENSIONS or filename in ALLOWED_EXTENSIONS:
-                    full_path = os.path.join(root, file)
-                    relative_path = os.path.relpath(full_path, self.temp_dir)
+                    file_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(file_path, self.temp_dir)
 
                     try:
-                        with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                             content = f.read()
+                            line_count = len(content.splitlines())
 
-                        parsed_files.append({
-                            "path": relative_path,
-                            "file_name": file,
-                            "extension": ext or filename,
-                            "content": content,
-                            "line_count": len(content.splitlines())
-                        })
-                    except Exception as e:
-                        print(f"Skipping file {relative_path} due to read error: {e}")
+                            self.files_data.append({
+                                "path": rel_path,
+                                "content": content,
+                                "line_count": line_count,
+                                "extension": ext
+                            })
+                    except Exception:
+                        continue
 
-        return parsed_files
-
-    def cleanup(self):
-        """Deletes temporary files after processing."""
-        if self.temp_dir and os.path.exists(self.temp_dir):
+            return self.files_data
+        finally:
+            # Cleanup temp directory when finished
             shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def get_summary(self) -> List[Dict[str, Any]]:
+        """Returns summary metadata of processed files."""
+        return [
+            {
+                "path": f["path"],
+                "line_count": f["line_count"],
+                "extension": f["extension"]
+            }
+            for f in self.files_data
+        ]
