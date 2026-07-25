@@ -1,10 +1,12 @@
 import os
 import sys
+
+# 📍 Fix Streamlit Cloud Root Path Resolution
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
 import streamlit as st
-
-# Add project root directory to sys.path so backend imports work seamlessly
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 from backend.app.services.ingestor import RepositoryIngestor
 from backend.app.services.llm_service import AIService
 from backend.app.services.rag_service import CodebaseRAG
