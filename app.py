@@ -34,7 +34,7 @@ if "rag_engine" not in st.session_state:
 with st.sidebar:
     st.header("⚡ DevPulse Control")
     st.success("System Status: Online (Groq Cloud API Active)")
-    st.info("💡 **Tip:** Public GitHub Repository URL enter karke Process par click karo.")
+    st.sidebar.info("💡 Tip: Enter a public GitHub repository URL and click Process.")
 
 # Repository Input Section
 repo_url = st.text_input("GitHub Repository URL", placeholder="https://github.com/username/repository.git")
