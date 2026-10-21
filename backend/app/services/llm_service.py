@@ -13,20 +13,39 @@ class AIService:
         self.client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
     def _query_llm(self, prompt: str) -> str:
-        """Internal helper method to call Groq API reliably."""
+        """Internal helper method to call Groq API with robust fallback models."""
         if not self.client:
             return "⚠️ Error: GROQ_API_KEY environment variable is not set. Please set it in your .env or environment."
 
-        try:
-            response = self.client.chat.completions.create(
-                model=self.coder_model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
-                max_tokens=4096
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            return f"⚠️ Error calling Groq API: {str(e)}"
+        # Active Groq models list for automatic fallback
+        models_to_try = [
+            self.coder_model,
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "llama3-70b-8192"
+        ]
+
+        # Duplicate models remove karke order preserve karte hain
+        seen = set()
+        unique_models = [m for m in models_to_try if not (m in seen or seen.add(m))]
+
+        for model_name in unique_models:
+            try:
+                response = self.client.chat.completions.create(
+                    model=model_name,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.2,
+                    max_tokens=4096
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                err_msg = str(e)
+                # Agar model decommission/not found hai toh next model try karo
+                if "404" in err_msg or "model_not_found" in err_msg or "does not exist" in err_msg:
+                    continue
+                return f"⚠️ Error calling Groq API ({model_name}): {err_msg}"
+
+        return "⚠️ Error: None of the configured Groq models were available."
 
     def analyze_architecture(self, files_summary: List[Dict[str, Any]]) -> str:
         """Generates project architecture breakdown and Mermaid.js diagram."""
