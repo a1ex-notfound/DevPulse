@@ -7,7 +7,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 
 class AIService:
-    def __init__(self, default_coder_model: str = "llama-3.3-70b-versatile"):
+    def __init__(self, default_coder_model: str = "llama3-70b-8192"):
         self.coder_model = default_coder_model
         # Groq client initialize tabhi hoga jab key present hogi
         self.client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
